@@ -10,11 +10,14 @@ import (
 	"encoding/json"
 	"strings"
 	"fmt"
+	"io/ioutil"
 )
 
 type CliOptions struct {
+	Verbose         bool   `short:"v" long:"verbose" description:"Verbose logging to stderr"`
 	ConfigFile      string `long:"config-file" description:"The location of the config file"`
 	CredentialsFile string `long:"credentials-file" description:"The location of the credentials file"`
+	OutputFile      string `long:"output-file" description:"If omitted, the JSON body is printed to stdout"`
 }
 
 type ParsedAWS struct {
@@ -23,7 +26,10 @@ type ParsedAWS struct {
 }
 
 func main() {
-	options := CliOptions{}
+	options := CliOptions{
+		Verbose:    false,
+		OutputFile: "",
+	}
 	if _, err := flags.Parse(&options); err != nil {
 		// No need to print anything, go-flags will do so for us.
 		return
@@ -38,18 +44,26 @@ func main() {
 	}
 
 	// Let's read all the files!
-	readValues(options.ConfigFile, &aws.Config)
-	readValues(options.CredentialsFile, &aws.Credentials)
+	readValues(options.ConfigFile, &aws.Config, options.Verbose)
+	readValues(options.CredentialsFile, &aws.Credentials, options.Verbose)
 
 	// Write it out to stdout
 	bytes, err := json.Marshal(aws)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(string(bytes))
+	if options.OutputFile == "" {
+		jsonBody := string(bytes)
+		fmt.Println(jsonBody)
+	} else {
+		ioutil.WriteFile(options.OutputFile, bytes, 0644)
+	}
 }
 
-func readValues(filename string, destination *map[string]map[string]interface{}) {
+func readValues(filename string, destination *map[string]map[string]interface{}, verbose bool) {
+	if verbose {
+		stderr(fmt.Sprintf("Reading from: %s", filename))
+	}
 	file, err := os.Open(filename)
 	if err != nil {
 		panic(err)
@@ -64,7 +78,9 @@ func readValues(filename string, destination *map[string]map[string]interface{})
 		if currentLine == "" {
 			continue
 		}
-		//fmt.Println(currentLine)
+		if verbose {
+			stderr(currentLine)
+		}
 		submatch := profileRegex.FindStringSubmatch(currentLine)
 		isProfile := len(submatch) > 1
 		if isProfile {
@@ -77,6 +93,13 @@ func readValues(filename string, destination *map[string]map[string]interface{})
 			(*destination)[currentProfile][key] = value
 		}
 	}
+	if verbose {
+		stderr("")
+	}
+}
+
+func stderr(out string) (int, error) {
+	return fmt.Fprintf(os.Stderr, "%s\n", out)
 }
 
 func setCliDefaults(options *CliOptions) {

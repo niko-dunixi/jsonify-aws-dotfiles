@@ -19,18 +19,18 @@ Sample JSON output:
 ```
 {
   "config": {
-    "paulbaker": {
+    "primary": {
       "region": "us-east-1",
       "role_arn": "arn:aws:iam::12345:role/something",
       "source_profile": "alternate"
     },
-    "alternate": {
+    "basic": {
       "region": "us-west-2",
       "output": "json"
     }
   },
   "credentials": {
-    "alternate": {
+    "basic": {
       "aws_access_key_id": "...",
       "aws_secret_access_key": "..."
     }

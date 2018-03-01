@@ -11,6 +11,7 @@ import (
 	"strings"
 	"fmt"
 	"io/ioutil"
+	"strconv"
 )
 
 type CliOptions struct {
@@ -48,7 +49,7 @@ func main() {
 	readValues(options.CredentialsFile, &aws.Credentials, options.Verbose)
 
 	// Write it out to stdout
-	bytes, err := json.Marshal(aws)
+	bytes, err := json.MarshalIndent(aws, "", "  ")
 	if err != nil {
 		panic(err)
 	}
@@ -90,7 +91,15 @@ func readValues(filename string, destination *map[string]map[string]interface{},
 			tuple := strings.SplitN(currentLine, "=", 2)
 			key := strings.TrimSpace(tuple[0])
 			value := strings.TrimSpace(tuple[1])
-			(*destination)[currentProfile][key] = value
+			// Try to save this value as an integer and bool first. If neither works,
+			// we just assume it's a string and leave it as is.
+			if i, err := strconv.ParseInt(value, 10, 64); err == nil {
+				(*destination)[currentProfile][key] = i
+			} else if b, err := strconv.ParseBool(value); err == nil {
+				(*destination)[currentProfile][key] = b
+			} else {
+				(*destination)[currentProfile][key] = value
+			}
 		}
 	}
 	if verbose {
